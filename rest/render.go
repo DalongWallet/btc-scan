@@ -11,9 +11,13 @@ type RespJsonObj struct {
 }
 
 func RespJson(c *gin.Context, code int, data interface{}) {
+	errMsg := StatusText(code)
+	if err, ok := data.(error); ok {
+		errMsg = err.Error()
+	}
 	result := &RespJsonObj{
 		Code: code,
-		Msg:  StatusText(code),
+		Msg:  errMsg,
 		Data: data,
 	}
 	c.JSON(HttpStatusCode(code), result)

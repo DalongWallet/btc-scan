@@ -53,6 +53,8 @@ func (s *RestSever) initRoute(r gin.IRouter) {
 	r.GET("/api/v1/uctxs", s.GetAddressUnconfirmedTransations)
 	r.GET("/api/v1/addr/:addr/utxo", s.GetAddressUtxo)
 	r.GET("/api/v1/best_height", s.GetBestHeight)
+	r.GET("/api/v1/block", s.GetBlockByHeight)
+	r.GET("/api/v1/balance", s.GetBalanceByAddressList)
 	r.POST("/api/v1/tx/send", s.SendTx)
 
 	//查看同步情况的接口
@@ -315,7 +317,7 @@ func (s *RestSever) SendTx(c *gin.Context) {
 
 	txid, err := s.btcCli.SendTx(req.Rawtx)
 	if err != nil {
-		RespJson(c, InternalServerError, nil)
+		RespJson(c, InternalServerError, err)
 		return
 	}
 	ret := struct {
@@ -339,7 +341,7 @@ func (s *RestSever) GetBestHeight(c *gin.Context) {
 	height, err := s.btcCli.WsClient.GetBlockCount()
 	if err != nil {
 		logger.Errorf("GetBestHeight %v", err.Error())
-		RespJson(c, InternalServerError, nil)
+		RespJson(c, InternalServerError, err)
 		return
 	}
 
@@ -350,4 +352,47 @@ func (s *RestSever) GetBestHeight(c *gin.Context) {
 	}
 
 	RespJson(c, OK, ret)
+}
+
+func (s *RestSever) GetBlockByHeight(c *gin.Context) {
+	logger.Debugf("GetBlockByHeight")
+
+	h := c.Query("height")
+	height, err := strconv.ParseInt(h, 10, 64)
+	if err != nil {
+		logger.Errorf("GetBlockByHeight %v", err.Error())
+		RespJson(c, InternalServerError, nil)
+		return
+	}
+
+	hash, err := s.btcCli.WsClient.GetBlockHash(height)
+	if err != nil {
+		logger.Errorf("GetBlockByHeight %v", err.Error())
+		RespJson(c, InternalServerError, nil)
+		return
+	}
+
+	block, err := s.btcCli.WsClient.GetBlock(hash)
+	if err != nil {
+		logger.Errorf("GetBlockByHeight %v", err.Error())
+		RespJson(c, InternalServerError, nil)
+		return
+	}
+
+	RespJson(c, OK, block)
+}
+
+func (s *RestSever) GetBalanceByAddressList(c *gin.Context) {
+	logger.Debugf("GetBalanceByAddressList")
+
+	addrs := strings.Split(c.Query("list"), "|")
+	var balance int64
+	for _, one := range addrs {
+		utxos, _ := s.txmgr.GetAddressUtxos(one)
+		for _, utxo := range utxos {
+			balance += utxo.Amount
+		}
+	}
+
+	RespJson(c, OK, balance)
 }
