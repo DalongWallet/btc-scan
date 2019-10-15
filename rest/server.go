@@ -54,6 +54,7 @@ func (s *RestSever) initRoute(r gin.IRouter) {
 	r.GET("/api/v1/addr/:addr/utxo", s.GetAddressUtxo)
 	r.GET("/api/v1/best_height", s.GetBestHeight)
 	r.GET("/api/v1/block", s.GetBlockByHeight)
+	r.GET("/api/v1/block_hash", s.GetBlockHashByHeight)
 	r.GET("/api/v1/balance", s.GetBalanceByAddressList)
 	r.POST("/api/v1/tx/send", s.SendTx)
 
@@ -352,6 +353,27 @@ func (s *RestSever) GetBestHeight(c *gin.Context) {
 	}
 
 	RespJson(c, OK, ret)
+}
+
+func (s *RestSever) GetBlockHashByHeight(c *gin.Context) {
+	logger.Debugf("GetBlockHashByHeight")
+
+	h := c.Query("height")
+	height, err := strconv.ParseInt(h, 10, 64)
+	if err != nil {
+		logger.Errorf("GetBlockHashByHeight %v", err.Error())
+		RespJson(c, InternalServerError, nil)
+		return
+	}
+
+	hash, err := s.btcCli.WsClient.GetBlockHash(height)
+	if err != nil {
+		logger.Errorf("GetBlockByHeight %v", err.Error())
+		RespJson(c, InternalServerError, nil)
+		return
+	}
+
+	RespJson(c, OK, hash.String())
 }
 
 func (s *RestSever) GetBlockByHeight(c *gin.Context) {
